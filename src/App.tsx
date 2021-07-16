@@ -29,12 +29,15 @@ function App() {
 
   const majorRef = useRef({ x: 0, y: 0, lastX: 0, lastY: 0 })
 
+  const pathRef = useRef<Array<{x: number, y: number}>>()
+
   const generateMaze = useCallback((ctx: CanvasRenderingContext2D, row: number, col: number, lastLeadTo) => {
     if (row >= Y || col>= X) {
       return
     }
 
     const mapData = mapDataRef.current
+    const path = pathRef.current
 
     let left, top, right, bottom
 
@@ -143,7 +146,7 @@ function App() {
     generateMaze(ctx, randRow, randCol, randDirection)
 
     direction.forEach((d) => {
-      generateMaze(ctx, randRow, randCol, 0)
+      generateMaze(ctx, row, col, 0)
     })
   }, [])
 
@@ -277,8 +280,86 @@ function App() {
     }
   }, [])
 
+  const searchPath = (ctx: CanvasRenderingContext2D, x: number, y: number, path: any[], direction: string) => {
+    const mapData = mapDataRef.current
+
+    let tempDirection = direction
+
+    const item = mapData[y][x] as { x: number, y: number, leadTo: Set<any> }
+    path.push({ x: x, y: y })
+
+    if (pathRef.current) {
+      return
+    }
+
+    if (x === X - 2 && y === Y - 2) {
+      pathRef.current = path.slice()
+      return
+    }
+
+    const leadTo = Array.from(item.leadTo.keys()).filter(d => d !== tempDirection)
+
+
+
+    if (!leadTo.length) {
+      
+      return
+    }
+
+    leadTo.forEach(item => {
+      let tempx = x, tempy = y
+      switch (item) {
+        case 'left':
+          tempx -= 1
+          tempDirection = 'right'
+          break
+        case 'right':
+          tempx += 1
+          tempDirection = 'left'
+          break
+        case 'bottom':
+          tempy += 1
+          tempDirection = 'top'
+          break
+        case 'top':
+          tempy -= 1
+          tempDirection = 'bottom'
+          break
+      }
+
+      searchPath(ctx, tempx, tempy, path, tempDirection)
+      path.pop()
+    })
+  }
+
+  const handleBtnClick = useCallback(async () => {
+    const canvasNode = ref?.current
+    const ctx = canvasNode?.getContext('2d')
+    const major = majorRef.current
+
+    const { x, y } = major
+
+    if (ctx) {
+      await searchPath(ctx, x, y, [], '')
+      const path = pathRef.current as any[]
+      const mapData = mapDataRef.current
+
+      for (let i = 1; i < path?.length; i++) {
+        const x = path[i].x
+        const y = path[i].y
+        ctx.beginPath()
+        ctx.fillStyle = 'aqua'
+        ctx.fillRect(mapData[y][x].x + 4, mapData[y][x].y + 4, 12, 12)
+        ctx.closePath()
+      }
+    }
+  }, [])
+
   return (
-    <canvas ref={ref} width={600} height={600} >您的浏览器不支持canvas.</canvas>
+    <>
+      <button onClick={handleBtnClick}>展示通向终点的路径</button>
+      <canvas ref={ref} width={600} height={600} >您的浏览器不支持canvas.</canvas>
+    </>
   )
 }
 
